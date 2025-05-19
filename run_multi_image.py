@@ -41,7 +41,23 @@ outputs = pipeline.run_multi_image(
 # - outputs['radiance_field']: a list of radiance fields
 # - outputs['mesh']: a list of meshes
 
-video_gs = render_utils.render_video(outputs['gaussian'][0])['color']
-video_mesh = render_utils.render_video(outputs['mesh'][0])['normal']
-video = [np.concatenate([frame_gs, frame_mesh], axis=1) for frame_gs, frame_mesh in zip(video_gs, video_mesh)]
-imageio.mimsave("output/case5.mp4", video, fps=30)
+mesh = outputs['mesh'][0]  # Get the MeshExtractResult
+vertices = mesh.vertices.cpu().numpy()  # shape: [N, 3]
+faces = mesh.faces.cpu().numpy()        # shape: [M, 3]
+
+def save_obj(filename, vertices, faces):
+    with open(filename, 'w') as f:
+        for v in vertices:
+            f.write(f"v {v[0]} {v[1]} {v[2]}\n")
+        for face in faces:
+            # OBJ is 1-indexed
+            f.write(f"f {face[0]+1} {face[1]+1} {face[2]+1}\n")
+
+save_obj("output/output_mesh.obj", vertices, faces)
+print("Mesh saved to output/output_mesh.obj")
+
+EXTENSION_HOME = "extensions"
+manifoldplus = f"{EXTENSION_HOME}/ManifoldPlus/build/manifold"
+
+os.system(f"{manifoldplus} --input output/output_mesh.obj --output output/output_mesh_manifold.obj")
+print("Manifold mesh saved to output/output_mesh_manifold.obj")
