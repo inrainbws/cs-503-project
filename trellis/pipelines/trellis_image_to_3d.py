@@ -42,6 +42,8 @@ class TrellisImageTo3DPipeline(Pipeline):
         self.rembg_session = None
         self._init_image_cond_model(image_cond_model)
 
+        self.attention_weights = {}
+
     @staticmethod
     def from_pretrained(path: str) -> "TrellisImageTo3DPipeline":
         """
@@ -298,6 +300,9 @@ class TrellisImageTo3DPipeline(Pipeline):
             num_images (int): The number of images to condition on.
             num_steps (int): The number of steps to run the sampler for.
         """
+
+        pipeline_reference = self
+        
         sampler = getattr(self, sampler_name)
         setattr(sampler, f'_old_inference_model', sampler._inference_model)
 
@@ -333,34 +338,54 @@ class TrellisImageTo3DPipeline(Pipeline):
             from .samplers import FlowEulerSampler
             def _new_inference_model(self, model, x_t, t, cond, neg_cond, cfg_strength, cfg_interval, **kwargs):
 
-                if isinstance(model, SLatFlowModel):
+                if sampler_name == "sparse_structure_sampler":
+                    att_strength = 1000
+
+                    neg_pred = FlowEulerSampler._inference_model(self, model, x_t, t, neg_cond, **kwargs)
+    
+                    preds = []
+                    for i in range(len(cond)):
+                        preds.append(FlowEulerSampler._inference_model(self, model, x_t, t, cond[i:i+1], **kwargs))
+                    
+                    att = [preds[i] * -neg_pred for i in range(len(cond))]
+                    att = [_.dense() if isinstance(_, sp.SparseTensor) else _ for _ in att]
+                    att = torch.cat(att, dim=0)
+                    att = torch.sum(att, dim=list(range(1, att.ndim)))
+                    att = att / torch.sum(att, dim=0)
+                    att = torch.softmax(att_strength * att, dim=0)
+
+                    if not hasattr(pipeline_reference, "attention_weights"):
+                        pipeline_reference.attention_weights = {}
+                    pipeline_reference.attention_weights[t] = att
+    
+                    pred = 0
+                    for i in range(len(preds)):
+                        pred += att[i] * preds[i]
+    
+                    if cfg_interval[0] <= t <= cfg_interval[1]:
+                        return (1 + cfg_strength) * pred - cfg_strength * neg_pred
+                    else:
+                        return pred
+                
+                else:
                     att_strength = 200
-                else:
-                    att_strength = 1400
 
-                neg_pred = FlowEulerSampler._inference_model(self, model, x_t, t, neg_cond, **kwargs)
-
-                preds = []
-                for i in range(len(cond)):
-                    preds.append(FlowEulerSampler._inference_model(self, model, x_t, t, cond[i:i+1], **kwargs))
-                
-                att = [preds[i] * -neg_pred for i in range(len(cond))]
-                att = [_.dense() if isinstance(_, sp.SparseTensor) else _ for _ in att]
-                att = torch.cat(att, dim=0)
-                att = torch.sum(att, dim=list(range(1, att.ndim)))
-                att = att / torch.sum(att, dim=0)
-                att = torch.softmax(att_strength * att, dim=0)
-                
-                print(att)
-
-                pred = 0
-                for i in range(len(preds)):
-                    pred += att[i] * preds[i]
-
-                if cfg_interval[0] <= t <= cfg_interval[1]:
-                    return (1 + cfg_strength) * pred - cfg_strength * neg_pred
-                else:
-                    return pred
+                    neg_pred = FlowEulerSampler._inference_model(self, model, x_t, t, neg_cond, **kwargs)
+    
+                    preds = []
+                    for i in range(len(cond)):
+                        preds.append(FlowEulerSampler._inference_model(self, model, x_t, t, cond[i:i+1], **kwargs))
+                    
+                    att = pipeline_reference.attention_weights[t]
+    
+                    pred = 0
+                    for i in range(len(preds)):
+                        pred += att[i] * preds[i]
+    
+                    if cfg_interval[0] <= t <= cfg_interval[1]:
+                        return (1 + cfg_strength) * pred - cfg_strength * neg_pred
+                    else:
+                        return pred                    
             
         else:
             raise ValueError(f"Unsupported mode: {mode}")

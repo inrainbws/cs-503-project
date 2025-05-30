@@ -9,6 +9,7 @@ import imageio
 from PIL import Image
 from trellis.pipelines import TrellisImageTo3DPipeline
 from trellis.utils import render_utils
+import matplotlib.pyplot as plt
 
 # Load a pipeline from a model folder or a Hugging Face model hub.
 pipeline = TrellisImageTo3DPipeline.from_pretrained("JeffreyXiang/TRELLIS-image-large")
@@ -16,8 +17,8 @@ pipeline.cuda()
 
 # Load an image
 images = [
-    Image.open("input/case3v1.png"),
-    Image.open("input/case3v2.png"),
+    Image.open("input/case5v1.png"),
+    Image.open("input/case5v2.png"),
 ]
 
 # Run the pipeline
@@ -44,3 +45,18 @@ video_gs = render_utils.render_video(outputs['gaussian'][0])['color']
 video_mesh = render_utils.render_video(outputs['mesh'][0])['normal']
 video = [np.concatenate([frame_gs, frame_mesh], axis=1) for frame_gs, frame_mesh in zip(video_gs, video_mesh)]
 imageio.mimsave("output/case5.mp4", video, fps=30)
+
+attention_weights = pipeline.attention_weights
+t = list(attention_weights.keys())
+att = list(attention_weights.values())
+
+att_front = [_[0].item() for _ in att]
+att_back = [_[1].item() for _ in att]
+
+plt.plot(t, att_front, label="front")
+plt.plot(t, att_back, label="back")
+plt.set_xlim(1, 0)
+plt.xlabel("timestep")
+plt.ylabel("attention weight")
+plt.legend()
+plt.savefig("output/case5_att.png")
