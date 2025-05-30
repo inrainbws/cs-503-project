@@ -55,7 +55,7 @@ att_back = [_[1].item() for _ in att]
 
 plt.plot(t, att_front, label="front")
 plt.plot(t, att_back, label="back")
-plt.set_xlim(1, 0)
+# plt.set_xlim(1, 0)
 plt.xlabel("timestep")
 plt.ylabel("attention weight")
 plt.legend()

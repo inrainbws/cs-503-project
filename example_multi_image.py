@@ -12,8 +12,7 @@ from trellis.utils import render_utils
 import matplotlib.pyplot as plt
 
 # Load a pipeline from a model folder or a Hugging Face model hub.
-# pipeline = TrellisImageTo3DPipeline.from_pretrained("JeffreyXiang/TRELLIS-image-large")
-pipeline = TrellisImageTo3DPipeline.from_pretrained("gqk/TRELLIS-image-large-fork")
+pipeline = TrellisImageTo3DPipeline.from_pretrained("JeffreyXiang/TRELLIS-image-large")
 pipeline.cuda()
 
 # Load an image
@@ -56,7 +55,7 @@ att_back = [_[1].item() for _ in att]
 
 plt.plot(t, att_front, label="front")
 plt.plot(t, att_back, label="back")
-plt.set_xlim(1, 0)
+# plt.set_xlim(1, 0)
 plt.xlabel("timestep")
 plt.ylabel("attention weight")
 plt.legend()
