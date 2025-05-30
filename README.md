@@ -51,4 +51,10 @@ glb.export("sample.glb")
 
 
 
+## Mesh Processing with ManifoldPlus and MeshLab
+
+We store the mesh representations from Trellis to `.obj` files.
+To convert a raw `.obj` mesh into a clean, watertight manifold suitable for 3D printing or simulation, we use [ManifoldPlus](https://github.com/hjwdzh/ManifoldPlus). First, install ManifoldPlus following the instructions in the repository. Then, you can process an `.obj` file using the provided Python or command-line interface. For example:
+```./ManifoldPlus input.obj output.obj```
+This command reads the input mesh, performs automatic watertight remeshing, and outputs a closed, oriented manifold mesh. Further manual adjustment is done with [MeshLab](https://www.meshlab.net/).
 
