@@ -9,7 +9,6 @@ import imageio
 from PIL import Image
 from trellis.pipelines import TrellisImageTo3DPipeline
 from trellis.utils import render_utils
-import matplotlib.pyplot as plt
 
 # Load a pipeline from a model folder or a Hugging Face model hub.
 # pipeline = TrellisImageTo3DPipeline.from_pretrained("JeffreyXiang/TRELLIS-image-large")
@@ -18,8 +17,8 @@ pipeline.cuda()
 
 # Load an image
 images = [
-    Image.open("input/case5v1.png"),
-    Image.open("input/case5v2.png"),
+    Image.open("input/case3v1.png"),
+    Image.open("input/case3v2.png"),
 ]
 
 # Run the pipeline
@@ -42,22 +41,23 @@ outputs = pipeline.run_multi_image(
 # - outputs['radiance_field']: a list of radiance fields
 # - outputs['mesh']: a list of meshes
 
-video_gs = render_utils.render_video(outputs['gaussian'][0])['color']
-video_mesh = render_utils.render_video(outputs['mesh'][0])['normal']
-video = [np.concatenate([frame_gs, frame_mesh], axis=1) for frame_gs, frame_mesh in zip(video_gs, video_mesh)]
-imageio.mimsave("output/case5.mp4", video, fps=30)
+mesh = outputs['mesh'][0]  # Get the MeshExtractResult
+vertices = mesh.vertices.cpu().numpy()  # shape: [N, 3]
+faces = mesh.faces.cpu().numpy()        # shape: [M, 3]
 
-attention_weights = pipeline.attention_weights
-t = list(attention_weights.keys())
-att = list(attention_weights.values())
+def save_obj(filename, vertices, faces):
+    with open(filename, 'w') as f:
+        for v in vertices:
+            f.write(f"v {v[0]} {v[1]} {v[2]}\n")
+        for face in faces:
+            # OBJ is 1-indexed
+            f.write(f"f {face[0]+1} {face[1]+1} {face[2]+1}\n")
 
-att_front = [_[0].item() for _ in att]
-att_back = [_[1].item() for _ in att]
+save_obj("output/output_mesh.obj", vertices, faces)
+print("Mesh saved to output/output_mesh.obj")
 
-plt.plot(t, att_front, label="front")
-plt.plot(t, att_back, label="back")
-plt.set_xlim(1, 0)
-plt.xlabel("timestep")
-plt.ylabel("attention weight")
-plt.legend()
-plt.savefig("output/case5_att.png")
+EXTENSION_HOME = "extensions"
+manifoldplus = f"{EXTENSION_HOME}/ManifoldPlus/build/manifold"
+
+os.system(f"{manifoldplus} --input output/output_mesh.obj --output output/output_mesh_manifold.obj")
+print("Manifold mesh saved to output/output_mesh_manifold.obj")

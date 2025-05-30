@@ -1,3 +1,6 @@
 [submodule "trellis/representations/mesh/flexicubes"]
 	path = trellis/representations/mesh/flexicubes
 	url = https://github.com/MaxtirError/FlexiCubes.git
+[submodule "extensions/ManifoldPlus"]
+	path = extensions/ManifoldPlus
+	url = https://github.com/hjwdzh/ManifoldPlus.git
